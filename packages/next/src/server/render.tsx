@@ -231,54 +231,54 @@ function renderPageTree(
 }
 
 export type RenderOptsPartial = {
+  ampOptimizerConfig?: { [key: string]: any }
+  ampPath?: string
+  ampSkipValidation?: boolean
+  ampValidator?: (html: string, pathname: string) => Promise<void>
+  assetPrefix?: string
+  assetQueryString?: string
+  basePath: string
   buildId: string
   canonicalBase: string
-  runtimeConfig?: { [key: string]: any }
-  assetPrefix?: string
-  err?: Error | null
-  nextExport?: boolean
-  dev?: boolean
-  ampPath?: string
-  ErrorDebug?: React.ComponentType<{ error: Error }>
-  ampValidator?: (html: string, pathname: string) => Promise<void>
-  ampSkipValidation?: boolean
-  ampOptimizerConfig?: { [key: string]: any }
-  isDataReq?: boolean
-  params?: ParsedUrlQuery
-  previewProps: __ApiPreviewProps | undefined
-  basePath: string
-  unstable_runtimeJS?: false
-  unstable_JsPreload?: false
-  optimizeFonts: FontConfig
-  fontManifest?: FontManifest
-  optimizeCss: any
-  nextConfigOutput?: 'standalone' | 'export'
-  nextScriptWorkers: any
-  assetQueryString?: string
-  resolvedUrl?: string
-  resolvedAsPath?: string
   clientReferenceManifest?: ClientReferenceManifest
-  nextFontManifest?: NextFontManifest
+  crossOrigin?: 'anonymous' | 'use-credentials' | '' | undefined
+  customServer?: boolean
+  defaultLocale?: string
+  deploymentId?: string
+  dev?: boolean
+  disableOptimizedLoading?: boolean
   distDir?: string
+  domainLocales?: DomainLocale[]
+  err?: Error | null
+  ErrorDebug?: React.ComponentType<{ error: Error }>
+  fontManifest?: FontManifest
+  images: ImageConfigComplete
+  isBot?: boolean
+  isDataReq?: boolean
+  isDraftMode?: boolean
+  isOnDemandRevalidate?: boolean
+  isServerAction?: boolean
+  largePageDataBytes?: number
   locale?: string
   locales?: string[]
-  defaultLocale?: string
-  domainLocales?: DomainLocale[]
-  disableOptimizedLoading?: boolean
-  supportsDynamicHTML: boolean
-  isBot?: boolean
+  nextConfigOutput?: 'standalone' | 'export'
+  nextExport?: boolean
+  nextFontManifest?: NextFontManifest
+  nextScriptWorkers: any
+  optimizeCss: any
+  optimizeFonts: FontConfig
+  params?: ParsedUrlQuery
+  previewProps: __ApiPreviewProps | undefined
+  resolvedAsPath?: string
+  resolvedUrl?: string
   runtime?: ServerRuntime
-  serverComponents?: boolean
+  runtimeConfig?: { [key: string]: any }
   serverActionsBodySizeLimit?: SizeLimit
-  customServer?: boolean
-  crossOrigin?: 'anonymous' | 'use-credentials' | '' | undefined
-  images: ImageConfigComplete
-  largePageDataBytes?: number
-  isOnDemandRevalidate?: boolean
+  serverComponents?: boolean
   strictNextHead: boolean
-  isDraftMode?: boolean
-  deploymentId?: string
-  isServerAction?: boolean
+  supportsDynamicHTML: boolean
+  unstable_JsPreload?: false
+  unstable_runtimeJS?: false
 }
 
 export type RenderOpts = LoadComponentsReturnType & RenderOptsPartial

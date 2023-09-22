@@ -5,14 +5,15 @@ import type { PagesManifest } from './webpack/plugins/pages-manifest-plugin'
 import type { ExportPathMap, NextConfigComplete } from '../server/config-shared'
 import type { MiddlewareManifest } from './webpack/plugins/middleware-plugin'
 import type { ActionManifest } from './webpack/plugins/flight-client-entry-plugin'
-import type { ExportOptions } from '../export'
+import type { ExportAppOptions, ExportAppWorker } from '../export/types'
 
 import '../lib/setup-exception-listeners'
+
 import { loadEnvConfig } from '@next/env'
 import chalk from 'next/dist/compiled/chalk'
 import crypto from 'crypto'
 import { isMatch, makeRe } from 'next/dist/compiled/micromatch'
-import { promises as fs, existsSync as fsExistsSync } from 'fs'
+import fs from 'fs/promises'
 import os from 'os'
 import { Worker } from '../lib/worker'
 import { defaultConfig } from '../server/config-shared'
@@ -152,21 +153,29 @@ import { defaultOverrides } from '../server/require-hook'
 import { initialize as initializeIncrementalCache } from '../server/lib/incremental-cache-server'
 import { nodeFs } from '../server/lib/node-fs-methods'
 
-export type SsgRoute = {
-  initialRevalidateSeconds: number | false
-  srcRoute: string | null
-  dataRoute: string | null
-  initialStatus?: number
-  initialHeaders?: Record<string, string>
+interface ExperimentalBypassForInfo {
   experimentalBypassFor?: RouteHas[]
 }
 
-export type DynamicSsgRoute = {
+interface DataRouteRouteInfo {
+  dataRoute: string | null
+}
+
+export interface SsgRoute
+  extends ExperimentalBypassForInfo,
+    DataRouteRouteInfo {
+  initialRevalidateSeconds: number | false
+  srcRoute: string | null
+  initialStatus?: number
+  initialHeaders?: Record<string, string>
+}
+
+export interface DynamicSsgRoute
+  extends ExperimentalBypassForInfo,
+    DataRouteRouteInfo {
   routeRegex: string
   fallback: string | null | false
-  dataRoute: string | null
   dataRouteRegex: string | null
-  experimentalBypassFor?: RouteHas[]
 }
 
 export type PrerenderManifest = {
@@ -235,6 +244,13 @@ export type RoutesManifest = {
   }
   skipMiddlewareUrlNormalize?: boolean
   caseSensitive?: boolean
+}
+
+export type ExportMarker = {
+  version: 1
+  hasExportPathMap: boolean
+  exportTrailingSlash: boolean
+  isNextImageImported: boolean
 }
 
 export function buildCustomRoute(
@@ -2492,15 +2508,10 @@ export default async function build(
             ssgPages,
             additionalSsgPaths
           )
-          const exportApp: typeof import('../export').default =
-            require('../export').default
+          const exportApp: ExportAppWorker = require('../export').default
 
           const exportConfig: NextConfigComplete = {
             ...config,
-            initialPageRevalidationMap: {},
-            initialPageMetaMap: {},
-            pageDurationMap: {},
-            ssgNotFoundPaths: [] as string[],
             // Default map will be the collection of automatic statically exported
             // pages and incremental pages.
             // n.b. we cannot handle this above in combinedPages because the dynamic
@@ -2622,7 +2633,7 @@ export default async function build(
             },
           }
 
-          const exportOptions: ExportOptions = {
+          const exportOptions: ExportAppOptions = {
             isInvokedFromCli: false,
             nextConfig: exportConfig,
             hasAppDir,
@@ -2647,10 +2658,17 @@ export default async function build(
               : undefined,
           }
 
-          await exportApp(dir, exportOptions, nextBuildSpan)
+          const exportResult = await exportApp(
+            dir,
+            exportOptions,
+            nextBuildSpan
+          )
+
+          // If there was no result, there's nothing more to do.
+          if (!exportResult) return
 
           const postBuildSpinner = createSpinner('Finalizing page optimization')
-          ssgNotFoundPaths = exportConfig.ssgNotFoundPaths
+          ssgNotFoundPaths = exportResult.ssgNotFoundPaths
 
           // remove server bundles that were exported
           for (const page of staticPages) {
@@ -2663,7 +2681,8 @@ export default async function build(
             const appConfig = appDefaultConfigs.get(originalAppPath) || {}
             let hasDynamicData =
               appConfig.revalidate === 0 ||
-              exportConfig.initialPageRevalidationMap[page] === 0
+              // FIXME: (wyattjoh) this is keyed by path, but previously this already used page so...
+              exportResult.paths[page].revalidate === 0
 
             if (hasDynamicData && pageInfos.get(page)?.static) {
               // if the page was marked as being static, but it contains dynamic data
@@ -2692,7 +2711,8 @@ export default async function build(
               if (isDynamicRoute(page) && route === page) return
               if (route === '/_not-found') return
 
-              let revalidate = exportConfig.initialPageRevalidationMap[route]
+              let { revalidate, metadata = {} } =
+                exportResult.paths[route] ?? {}
 
               if (typeof revalidate === 'undefined') {
                 revalidate =
@@ -2717,15 +2737,11 @@ export default async function build(
 
                 const routeMeta: Partial<SsgRoute> = {}
 
-                const exportRouteMeta: {
-                  status?: number
-                  headers?: Record<string, string>
-                } = exportConfig.initialPageMetaMap[route] || {}
-
-                if (exportRouteMeta.status !== 200) {
-                  routeMeta.initialStatus = exportRouteMeta.status
+                if (metadata.status !== 200) {
+                  routeMeta.initialStatus = metadata.status
                 }
-                const exportHeaders = exportRouteMeta.headers
+
+                const exportHeaders = metadata.headers
                 const headerKeys = Object.keys(exportHeaders || {})
 
                 if (exportHeaders && headerKeys.length) {
@@ -2959,7 +2975,7 @@ export default async function build(
             const file = normalizePagePath(page)
 
             const pageInfo = pageInfos.get(page)
-            const durationInfo = exportConfig.pageDurationMap[page]
+            const durationInfo = exportResult.durations[page]
             if (pageInfo && durationInfo) {
               // Set Build Duration
               if (pageInfo.ssgPageRoutes) {
@@ -3001,7 +3017,7 @@ export default async function build(
 
                     finalPrerenderRoutes[localePage] = {
                       initialRevalidateSeconds:
-                        exportConfig.initialPageRevalidationMap[localePage],
+                        exportResult.paths[localePage].revalidate,
                       srcRoute: null,
                       dataRoute: path.posix.join(
                         '/_next/data',
@@ -3013,7 +3029,7 @@ export default async function build(
                 } else {
                   finalPrerenderRoutes[page] = {
                     initialRevalidateSeconds:
-                      exportConfig.initialPageRevalidationMap[page],
+                      exportResult.paths[page].revalidate,
                     srcRoute: null,
                     dataRoute: path.posix.join(
                       '/_next/data',
@@ -3025,7 +3041,7 @@ export default async function build(
                 // Set Page Revalidation Interval
                 if (pageInfo) {
                   pageInfo.initialRevalidateSeconds =
-                    exportConfig.initialPageRevalidationMap[page]
+                    exportResult.paths[page].revalidate
                 }
               } else {
                 // For a dynamic SSG page, we did not copy its data exports and only
@@ -3074,7 +3090,7 @@ export default async function build(
 
                   finalPrerenderRoutes[route] = {
                     initialRevalidateSeconds:
-                      exportConfig.initialPageRevalidationMap[route],
+                      exportResult.paths[route].revalidate,
                     srcRoute: page,
                     dataRoute: path.posix.join(
                       '/_next/data',
@@ -3086,7 +3102,7 @@ export default async function build(
                   // Set route Revalidation Interval
                   if (pageInfo) {
                     pageInfo.initialRevalidateSeconds =
-                      exportConfig.initialPageRevalidationMap[route]
+                      exportResult.paths[route].revalidate
                   }
                 }
               }
@@ -3247,14 +3263,17 @@ export default async function build(
         }),
         'utf8'
       )
-      await fs.writeFile(
-        path.join(distDir, EXPORT_MARKER),
-        JSON.stringify({
+
+      const exportMarker: ExportMarker = {
           version: 1,
           hasExportPathMap: typeof config.exportPathMap === 'function',
           exportTrailingSlash: config.trailingSlash === true,
           isNextImageImported: isNextImageImported === true,
-        }),
+      }
+
+      await fs.writeFile(
+        path.join(distDir, EXPORT_MARKER),
+        JSON.stringify(exportMarker),
         'utf8'
       )
       await fs.unlink(path.join(distDir, EXPORT_DETAIL)).catch((err) => {
@@ -3299,7 +3318,7 @@ export default async function build(
         )
         if (appDir) {
           const originalServerApp = path.join(distDir, SERVER_DIRECTORY, 'app')
-          if (fsExistsSync(originalServerApp)) {
+          if (await fileExists(originalServerApp)) {
             await recursiveCopy(
               originalServerApp,
               path.join(
@@ -3356,8 +3375,7 @@ export default async function build(
       }
 
       if (config.output === 'export') {
-        const exportApp: typeof import('../export').default =
-          require('../export').default
+        const exportApp: ExportAppWorker = require('../export').default
 
         const pagesWorker = createStaticWorker(
           incrementalCacheIpcPort,
@@ -3368,7 +3386,7 @@ export default async function build(
           incrementalCacheIpcValidationKey
         )
 
-        const options: ExportOptions = {
+        const options: ExportAppOptions = {
           isInvokedFromCli: false,
           buildExport: false,
           nextConfig: config,

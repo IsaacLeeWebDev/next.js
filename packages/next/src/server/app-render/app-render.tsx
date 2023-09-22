@@ -12,7 +12,10 @@ import type {
 } from './types'
 
 import type { StaticGenerationAsyncStorage } from '../../client/components/static-generation-async-storage.external'
-import type { StaticGenerationBailout } from '../../client/components/static-generation-bailout'
+import {
+  StaticGenBailoutError,
+  type StaticGenerationBailout,
+} from '../../client/components/static-generation-bailout'
 import type { RequestAsyncStorage } from '../../client/components/request-async-storage.external'
 
 import React from 'react'

@@ -122,26 +122,18 @@ export type ChildProp = {
 }
 
 export type RenderOptsPartial = {
-  err?: Error | null
-  dev?: boolean
-  buildId: string
-  basePath: string
-  clientReferenceManifest?: ClientReferenceManifest
-  supportsDynamicHTML: boolean
-  runtime?: ServerRuntime
-  serverComponents?: boolean
-  assetPrefix?: string
-  nextFontManifest?: NextFontManifest
-  isBot?: boolean
-  incrementalCache?: import('../lib/incremental-cache').IncrementalCache
-  isRevalidate?: boolean
-  nextExport?: boolean
-  nextConfigOutput?: 'standalone' | 'export'
   appDirDevErrorLogger?: (err: any) => Promise<void>
-  originalPathname?: string
-  isDraftMode?: boolean
+  assetPrefix?: string
+  basePath: string
+  buildId: string
+  clientReferenceManifest?: ClientReferenceManifest
   deploymentId?: string
-  onUpdateCookies?: (cookies: string[]) => void
+  dev?: boolean
+  err?: Error | null
+  incrementalCache?: import('../lib/incremental-cache').IncrementalCache
+  isBot?: boolean
+  isDraftMode?: boolean
+  isRevalidate?: boolean
   loadConfig?: (
     phase: string,
     dir: string,
@@ -149,8 +141,16 @@ export type RenderOptsPartial = {
     rawConfig?: boolean,
     silent?: boolean
   ) => Promise<NextConfigComplete>
-  serverActionsBodySizeLimit?: SizeLimit
+  nextConfigOutput?: 'standalone' | 'export'
+  nextExport?: boolean
+  nextFontManifest?: NextFontManifest
+  onUpdateCookies?: (cookies: string[]) => void
+  originalPathname?: string
   params?: ParsedUrlQuery
+  runtime?: ServerRuntime
+  serverActionsBodySizeLimit?: SizeLimit
+  serverComponents?: boolean
+  supportsDynamicHTML: boolean
 }
 
 export type RenderOpts = LoadComponentsReturnType & RenderOptsPartial

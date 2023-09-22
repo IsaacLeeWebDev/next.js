@@ -1,8 +1,9 @@
 import { DynamicServerError } from './hooks-server-context'
 import { staticGenerationAsyncStorage } from './static-generation-async-storage.external'
 
-class StaticGenBailoutError extends Error {
-  code = 'NEXT_STATIC_GEN_BAILOUT'
+export class StaticGenBailoutError extends Error {
+  public static readonly code = 'NEXT_STATIC_GEN_BAILOUT'
+  public readonly code = StaticGenBailoutError.code
 }
 
 type BailoutOpts = { dynamic?: string; link?: string }

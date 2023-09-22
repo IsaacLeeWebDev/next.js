@@ -48,7 +48,8 @@ export class Worker {
               .trim(),
           } as any,
         },
-      }) as JestWorker
+      })
+
       restartPromise = new Promise(
         (resolve) => (resolveRestartPromise = resolve)
       )
